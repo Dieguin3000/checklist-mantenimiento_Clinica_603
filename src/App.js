@@ -1,7 +1,13 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { BrowserMultiFormatReader } from '@zxing/browser';
+
+// Firestore imports
+import { db } from "./firebase";
+import {
+  collection, addDoc, onSnapshot, deleteDoc, doc, query, orderBy
+} from "firebase/firestore";
 
 // --- Checklist e info extra actualizados ---
 const dispositivos = [
@@ -9,6 +15,7 @@ const dispositivos = [
     id: 'cama4700',
     nombre: 'Cama de maternidad Stryker ADEL 4700',
     checklist: [
+      // ...tus items, idéntico como los tienes...
       { id: 1, label: "Todos los tornillos y elementos de fijación están bien sujetos", info: "Verificar que todos los tornillos estén firmemente ajustados utilizando las herramientas apropiadas (Allen, Torx, llaves combinadas). En reemplazos o ajustes críticos, aplicar adhesivo tipo Loctite 242 si se indica. Reapretar tras el mantenimiento." },
       { id: 2, label: "Todas las soldaduras están intactas, no agrietadas ni rotas", info: "Si se detectan grietas, porosidades o fracturas, no operar la cama y contactar al soporte técnico de Stryker. No se permite reparación local de soldaduras." },
       { id: 3, label: "No hay tubos ni láminas de metal dobladas o rotas", info: "Buscar dobleces, deformaciones o fracturas. Ante cualquier daño estructural, suspender el uso de la cama y contactar a soporte técnico de Stryker." },
@@ -35,7 +42,6 @@ const dispositivos = [
   }
 ];
 
-// --- Motivos para no finalización ---
 const motivosNoFinalizacion = [
   "Falta de refacciones o piezas",
   "Falta de herramientas",
@@ -69,11 +75,15 @@ function App() {
   // --- Responsividad: detecta si es móvil ---
   const isMobile = window.innerWidth < 600;
 
-  // --- Historial (localStorage) ---
-  const [historial, setHistorial] = useState(() => {
-    const saved = localStorage.getItem('historialMantenimientos');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // --- Historial desde Firestore ---
+  const [historial, setHistorial] = useState([]);
+  useEffect(() => {
+    const q = query(collection(db, "historial"), orderBy("fecha", "desc"));
+    const unsub = onSnapshot(q, (snap) => {
+      setHistorial(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return unsub;
+  }, []);
 
   // --- Seleccionar dispositivo ---
   const handleSelectDevice = (device) => {
@@ -136,8 +146,8 @@ function App() {
     setScanning(false);
   };
 
-  // --- Guardar checklist ---
-  const handleGuardar = (e) => {
+  // --- Guardar checklist en Firestore ---
+  const handleGuardar = async (e) => {
     e.preventDefault();
 
     if (items.length === 0) {
@@ -170,7 +180,7 @@ function App() {
       dispositivo: selectedDevice.nombre,
       dispositivoId: selectedDevice.id,
       numeroSerie,
-      fecha: new Date().toLocaleString(),
+      fecha: new Date().toISOString(), // para ordenar bien por fecha
       items: [...items],
       finalizado,
       motivoGeneral,
@@ -178,21 +188,23 @@ function App() {
       firmadoPor: codigoEmpleado
     };
 
-    const nuevoHistorial = [registro, ...historial];
-    setHistorial(nuevoHistorial);
-    localStorage.setItem('historialMantenimientos', JSON.stringify(nuevoHistorial));
+    try {
+      await addDoc(collection(db, "historial"), registro);
 
-    setMensaje('¡Checklist guardado exitosamente!');
-    setSelectedDevice(null);
-    setItems([]);
-    setFinalizado(null);
-    setMotivoGeneral('');
-    setFechaGeneral('');
-    setCodigoEmpleado('');
-    setNumeroSerie('');
-    setShowFirma(false);
-    setScanning(false);
-    setTimeout(() => setMensaje(''), 2000);
+      setMensaje('¡Checklist guardado exitosamente!');
+      setSelectedDevice(null);
+      setItems([]);
+      setFinalizado(null);
+      setMotivoGeneral('');
+      setFechaGeneral('');
+      setCodigoEmpleado('');
+      setNumeroSerie('');
+      setShowFirma(false);
+      setScanning(false);
+      setTimeout(() => setMensaje(''), 2000);
+    } catch (e) {
+      setMensaje('Error al guardar en Firestore: ' + e.message);
+    }
   };
 
   // --- Escaneo de código ---
@@ -232,7 +244,7 @@ function App() {
         if (idx !== 0) doc.addPage();
         doc.setFontSize(12);
         doc.text(`Registro ${idx + 1}:`, 15, 30);
-        doc.text(`Fecha: ${h.fecha}`, 15, 38);
+        doc.text(`Fecha: ${new Date(h.fecha).toLocaleString()}`, 15, 38);
         doc.text(`N° Serie: ${h.numeroSerie || 'No registrado'}`, 15, 44);
         doc.text(`Firmado por: ${h.firmadoPor}`, 15, 50);
         doc.text(`¿Finalizado?: ${h.finalizado === "si" ? "Sí" : "No"}`, 15, 56);
@@ -276,7 +288,7 @@ function App() {
   };
 
   // --- Eliminar registro (requiere escanear y registra en eliminaciones) ---
-  const handleEliminarRegistro = (idx) => {
+  const handleEliminarRegistro = async (idx) => {
     const codigo = prompt("Escanea o ingresa tu código de empleado para eliminar este registro:");
     if (!codigo) return;
     if (!window.confirm('¿Seguro que deseas eliminar este registro?')) return;
@@ -286,10 +298,12 @@ function App() {
       eliminadoPor: codigo
     };
     setEliminaciones(prev => [...prev, eliminado]);
-    const nuevoHistorial = [...historial];
-    nuevoHistorial.splice(idx, 1);
-    setHistorial(nuevoHistorial);
-    localStorage.setItem('historialMantenimientos', JSON.stringify(nuevoHistorial));
+
+    try {
+      await deleteDoc(doc(db, "historial", registroEliminado.id));
+    } catch (e) {
+      setMensaje('Error al eliminar en Firestore: ' + e.message);
+    }
   };
 
   // --- Login para modo edición ---
@@ -656,7 +670,7 @@ function App() {
                     marginBottom: 12, background: '#242c3a',
                     borderRadius: 10, padding: 10, marginTop: 10, fontSize: 15, position: 'relative'
                   }}>
-                    <div style={{ fontWeight: 'bold', fontSize: 15 }}>{h.fecha}</div>
+                    <div style={{ fontWeight: 'bold', fontSize: 15 }}>{new Date(h.fecha).toLocaleString()}</div>
                     <div style={{ color: '#7da9ee' }}>N° Serie: <b>{h.numeroSerie}</b></div>
                     <div style={{ color: '#c4f27d', marginBottom: 6 }}>Firmado por: {h.firmadoPor}</div>
                     <div style={{ color: '#e7e96d', marginBottom: 8 }}>
@@ -693,7 +707,7 @@ function App() {
                         color: '#fff', border: 'none', borderRadius: 7,
                         padding: '4px 10px', fontSize: 14, cursor: 'pointer'
                       }}
-                        onClick={() => handleEliminarRegistro(historial.findIndex(reg => reg.fecha === h.fecha && reg.firmadoPor === h.firmadoPor))}
+                        onClick={() => handleEliminarRegistro(historial.findIndex(reg => reg.id === h.id))}
                       >Eliminar</button>
                     )}
                   </div>
