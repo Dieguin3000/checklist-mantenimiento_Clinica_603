@@ -15,7 +15,6 @@ const dispositivos = [
     id: 'cama4700',
     nombre: 'Cama de maternidad Stryker ADEL 4700',
     checklist: [
-      // ...tus items, idéntico como los tienes...
       { id: 1, label: "Todos los tornillos y elementos de fijación están bien sujetos", info: "Verificar que todos los tornillos estén firmemente ajustados utilizando las herramientas apropiadas (Allen, Torx, llaves combinadas). En reemplazos o ajustes críticos, aplicar adhesivo tipo Loctite 242 si se indica. Reapretar tras el mantenimiento." },
       { id: 2, label: "Todas las soldaduras están intactas, no agrietadas ni rotas", info: "Si se detectan grietas, porosidades o fracturas, no operar la cama y contactar al soporte técnico de Stryker. No se permite reparación local de soldaduras." },
       { id: 3, label: "No hay tubos ni láminas de metal dobladas o rotas", info: "Buscar dobleces, deformaciones o fracturas. Ante cualquier daño estructural, suspender el uso de la cama y contactar a soporte técnico de Stryker." },
@@ -53,8 +52,19 @@ const motivosNoFinalizacion = [
 
 const ADMIN_PASS = "biomed2024";
 
+function formatFecha(fechaStr) {
+  try {
+    return new Date(fechaStr).toLocaleString('es-MX', {
+      timeZone: 'America/Mexico_City',
+      year: 'numeric', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true
+    });
+  } catch {
+    return fechaStr;
+  }
+}
+
 function App() {
-  // --- Estados principales ---
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [items, setItems] = useState([]);
   const [mensaje, setMensaje] = useState('');
@@ -69,10 +79,14 @@ function App() {
   const [modoEdicion, setModoEdicion] = useState(false);
   const [mostrarLogin, setMostrarLogin] = useState(false);
   const [loginPass, setLoginPass] = useState('');
-  const [eliminaciones, setEliminaciones] = useState([]); // historial de eliminaciones
+  const [eliminaciones, setEliminaciones] = useState([]);
+  const [showEliminarModal, setShowEliminarModal] = useState(false);
+  const [codigoEliminar, setCodigoEliminar] = useState('');
+  const [scanningEliminar, setScanningEliminar] = useState(false);
+  const [registroEliminar, setRegistroEliminar] = useState(null);
   const videoRef = useRef(null);
+  const videoEliminarRef = useRef(null);
 
-  // --- Responsividad: detecta si es móvil ---
   const isMobile = window.innerWidth < 600;
 
   // --- Historial desde Firestore ---
@@ -180,7 +194,7 @@ function App() {
       dispositivo: selectedDevice.nombre,
       dispositivoId: selectedDevice.id,
       numeroSerie,
-      fecha: new Date().toISOString(), // para ordenar bien por fecha
+      fecha: new Date().toISOString(),
       items: [...items],
       finalizado,
       motivoGeneral,
@@ -190,7 +204,6 @@ function App() {
 
     try {
       await addDoc(collection(db, "historial"), registro);
-
       setMensaje('¡Checklist guardado exitosamente!');
       setSelectedDevice(null);
       setItems([]);
@@ -207,7 +220,7 @@ function App() {
     }
   };
 
-  // --- Escaneo de código ---
+  // --- Escaneo de código (firma) ---
   const handleScan = async () => {
     setScanning(true);
     setMensaje('');
@@ -225,18 +238,29 @@ function App() {
     }
   };
 
-  // --- Exportar historial PDF (una hoja por registro, incluye eliminaciones) ---
+  // --- Escaneo de código (eliminar) ---
+  const handleScanEliminar = async () => {
+    setScanningEliminar(true);
+    const codeReader = new BrowserMultiFormatReader();
+    try {
+      const result = await codeReader.decodeOnceFromVideoDevice(undefined, videoEliminarRef.current);
+      setCodigoEliminar(result.getText());
+      setScanningEliminar(false);
+      codeReader.reset();
+    } catch (err) {
+      setMensaje('No se pudo escanear el código. Intenta de nuevo o ingresa manualmente.');
+      setScanningEliminar(false);
+    }
+  };
+
+  // --- Exportar historial PDF (formato MX) ---
   const exportarHistorialPDF = (device) => {
     const doc = new jsPDF();
     doc.setFontSize(16);
     doc.text(`Historial de Mantenimiento`, 15, 15);
     doc.setFontSize(13);
     doc.text(`Dispositivo: ${device.nombre}`, 15, 25);
-
-    // Filtra historial solo de ese dispositivo
     const registros = historial.filter(h => h.dispositivoId === device.id);
-
-    let currentY = 32;
     if (registros.length === 0) {
       doc.text("Sin registros.", 15, 40);
     } else {
@@ -244,16 +268,14 @@ function App() {
         if (idx !== 0) doc.addPage();
         doc.setFontSize(12);
         doc.text(`Registro ${idx + 1}:`, 15, 30);
-        doc.text(`Fecha: ${new Date(h.fecha).toLocaleString()}`, 15, 38);
+        doc.text(`Fecha: ${formatFecha(h.fecha)}`, 15, 38);
         doc.text(`N° Serie: ${h.numeroSerie || 'No registrado'}`, 15, 44);
         doc.text(`Firmado por: ${h.firmadoPor}`, 15, 50);
         doc.text(`¿Finalizado?: ${h.finalizado === "si" ? "Sí" : "No"}`, 15, 56);
-
         if (h.finalizado === "no") {
           doc.text(`Motivo: ${h.motivoGeneral || "-"}`, 15, 62);
           doc.text(`Fecha solución: ${h.fechaGeneral || "-"}`, 15, 68);
         }
-
         autoTable(doc, {
           startY: 75,
           head: [['Elemento', 'Estado', 'Comentario']],
@@ -267,8 +289,6 @@ function App() {
         });
       });
     }
-
-    // --- Añadir tabla de eliminaciones ---
     if (eliminaciones.length > 0) {
       doc.addPage();
       doc.setFontSize(15);
@@ -278,32 +298,44 @@ function App() {
         head: [['Fecha', 'N° Serie', 'Motivo', 'Fecha solución', 'Eliminado por']],
         body: eliminaciones
           .filter(e => e.dispositivoId === device.id)
-          .map(e => [e.fecha, e.numeroSerie, e.motivoGeneral || '-', e.fechaGeneral || '-', e.eliminadoPor || '-']),
+          .map(e => [formatFecha(e.fecha), e.numeroSerie, e.motivoGeneral || '-', e.fechaGeneral || '-', e.eliminadoPor || '-']),
         theme: 'grid',
         styles: { fontSize: 9 }
       });
     }
-
     doc.save(`Historial_${device.nombre.replace(/\s+/g, '_')}.pdf`);
   };
 
-  // --- Eliminar registro (requiere escanear y registra en eliminaciones) ---
-  const handleEliminarRegistro = async (idx) => {
-    const codigo = prompt("Escanea o ingresa tu código de empleado para eliminar este registro:");
-    if (!codigo) return;
-    if (!window.confirm('¿Seguro que deseas eliminar este registro?')) return;
-    const registroEliminado = historial[idx];
+  // --- MODAL para eliminar registro ---
+  const openEliminarModal = (reg) => {
+    setCodigoEliminar('');
+    setShowEliminarModal(true);
+    setRegistroEliminar(reg);
+  };
+  const closeEliminarModal = () => {
+    setShowEliminarModal(false);
+    setCodigoEliminar('');
+    setScanningEliminar(false);
+    setRegistroEliminar(null);
+  };
+  const confirmarEliminar = async () => {
+    if (!codigoEliminar.trim()) {
+      setMensaje('Ingresa o escanea tu código de empleado para eliminar.');
+      return;
+    }
+    if (!registroEliminar) return;
     const eliminado = {
-      ...registroEliminado,
-      eliminadoPor: codigo
+      ...registroEliminar,
+      eliminadoPor: codigoEliminar
     };
     setEliminaciones(prev => [...prev, eliminado]);
-
     try {
-      await deleteDoc(doc(db, "historial", registroEliminado.id));
+      await deleteDoc(doc(db, "historial", registroEliminar.id));
+      setMensaje('Registro eliminado correctamente.');
     } catch (e) {
       setMensaje('Error al eliminar en Firestore: ' + e.message);
     }
+    closeEliminarModal();
   };
 
   // --- Login para modo edición ---
@@ -340,7 +372,6 @@ function App() {
       overflowX: 'hidden'
     }}>
       <h2 style={{ fontSize: isMobile ? 22 : 32, marginBottom: 10 }}>Checklist de Mantenimiento</h2>
-
       {/* Mensajes de alerta */}
       {mensaje && (
         <div style={{
@@ -350,7 +381,51 @@ function App() {
           borderRadius: 8
         }}>{mensaje}</div>
       )}
-
+      {/* MODAL eliminación */}
+      {showEliminarModal && (
+        <div style={{
+          position: 'fixed', left: 0, top: 0, width: '100vw', height: '100vh', background: 'rgba(30,30,45,0.86)',
+          zIndex: 90, display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{ background: '#282e4b', padding: 22, borderRadius: 14, minWidth: 310, boxShadow: '0 3px 16px #222' }}>
+            <h3 style={{ color: '#ffa' }}>Eliminar registro</h3>
+            <div style={{ marginBottom: 7 }}>Escanea o ingresa tu código para autorizar:</div>
+            <input
+              type="text"
+              value={codigoEliminar}
+              onChange={e => setCodigoEliminar(e.target.value)}
+              placeholder="Código de empleado"
+              style={{ fontSize: 17, padding: 8, borderRadius: 8, border: '1.5px solid #bbb', marginBottom: 10, width: '95%' }}
+              autoFocus
+            />
+            <div>
+              <button
+                type="button"
+                style={{ background: '#237b47', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 18px', marginRight: 7, fontWeight: 'bold' }}
+                onClick={confirmarEliminar}
+                disabled={scanningEliminar}
+              >Eliminar</button>
+              <button
+                type="button"
+                style={{ background: '#828', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 16px', fontWeight: 'bold' }}
+                onClick={closeEliminarModal}
+                disabled={scanningEliminar}
+              >Cancelar</button>
+              <button
+                type="button"
+                style={{ background: '#1464ad', color: '#fff', border: 'none', borderRadius: 8, padding: '7px 16px', marginLeft: 8, fontWeight: 'bold' }}
+                onClick={handleScanEliminar}
+                disabled={scanningEliminar}
+              >{scanningEliminar ? "Escaneando..." : "Escanear"}</button>
+            </div>
+            {showEliminarModal && (
+              <div style={{ marginTop: 10 }}>
+                <video ref={videoEliminarRef} style={{ width: 210, borderRadius: 10, marginBottom: 8 }} />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {/* Botón modo edición */}
       <div style={{ marginBottom: 18 }}>
         {!modoEdicion ? (
@@ -389,7 +464,6 @@ function App() {
           }} onClick={() => setModoEdicion(false)}>Salir de edición</button>
         )}
       </div>
-
       {/* Vistas principales */}
       {!showHistorial ? (
         <>
@@ -440,7 +514,6 @@ function App() {
                 />
               </div>
               <h4 style={{ fontSize: isMobile ? 16 : 22 }}>{selectedDevice.nombre}</h4>
-
               {/* --- CHECKLIST GRID RESPONSIVO --- */}
               <div style={{
                 background: '#191b26',
@@ -449,7 +522,6 @@ function App() {
                 padding: isMobile ? '7px 4px 5px 4px' : '18px 24px 8px 18px',
                 overflowX: 'auto'
               }}>
-                {/* Cabecera */}
                 <div style={{
                   display: 'grid',
                   gridTemplateColumns: isMobile ? '36px 1.7fr 44px 44px' : '56px 2.5fr 100px 100px',
@@ -462,7 +534,6 @@ function App() {
                   <span style={{ fontWeight: 'bold', fontSize: isMobile ? 16 : 20 }}></span>
                   <span style={{ fontWeight: 'bold', fontSize: isMobile ? 16 : 20, color: '#91aaff' }}>Comentario</span>
                 </div>
-                {/* Items */}
                 {items.map((item, idx) => (
                   <div key={item.id} style={{
                     display: 'grid',
@@ -496,7 +567,6 @@ function App() {
                       }}
                       onClick={() => handleShowComment(idx)}
                       title="Agregar comentario">+</button>
-                    {/* Info popup */}
                     {item.showInfo && (
                       <div style={{
                         gridColumn: '2 / 5',
@@ -505,7 +575,6 @@ function App() {
                         fontSize: isMobile ? 13 : 16, zIndex: 30
                       }}>{item.info}</div>
                     )}
-                    {/* Comentario popup */}
                     {item.showComment && (
                       <div style={{ gridColumn: '4 / 5', marginTop: 5 }}>
                         <input
@@ -523,7 +592,6 @@ function App() {
                   </div>
                 ))}
               </div>
-
               {/* --- Se finalizó el mantenimiento --- */}
               <form onSubmit={handleGuardar}>
                 <div style={{
@@ -581,7 +649,6 @@ function App() {
                     </>
                   )}
                 </div>
-
                 {/* Firma/código de empleado */}
                 <div style={{ marginBottom: 18 }}>
                   <label style={{ fontWeight: 'bold', marginRight: 7 }}>Código empleado (firma):</label>
@@ -670,7 +737,7 @@ function App() {
                     marginBottom: 12, background: '#242c3a',
                     borderRadius: 10, padding: 10, marginTop: 10, fontSize: 15, position: 'relative'
                   }}>
-                    <div style={{ fontWeight: 'bold', fontSize: 15 }}>{new Date(h.fecha).toLocaleString()}</div>
+                    <div style={{ fontWeight: 'bold', fontSize: 15 }}>{formatFecha(h.fecha)}</div>
                     <div style={{ color: '#7da9ee' }}>N° Serie: <b>{h.numeroSerie}</b></div>
                     <div style={{ color: '#c4f27d', marginBottom: 6 }}>Firmado por: {h.firmadoPor}</div>
                     <div style={{ color: '#e7e96d', marginBottom: 8 }}>
@@ -707,13 +774,13 @@ function App() {
                         color: '#fff', border: 'none', borderRadius: 7,
                         padding: '4px 10px', fontSize: 14, cursor: 'pointer'
                       }}
-                        onClick={() => handleEliminarRegistro(historial.findIndex(reg => reg.id === h.id))}
+                        onClick={() => openEliminarModal(h)}
                       >Eliminar</button>
                     )}
                   </div>
                 ))
               )}
-              {/* Tabla de eliminaciones en la app (opcional) */}
+              {/* Tabla de eliminaciones */}
               {eliminaciones.filter(e => e.dispositivoId === dev.id).length > 0 && (
                 <div style={{
                   marginTop: 18, background: '#3d2347', borderRadius: 9, padding: 8, color: '#fff'
@@ -722,7 +789,7 @@ function App() {
                   <ul>
                     {eliminaciones.filter(e => e.dispositivoId === dev.id).map((e, i) => (
                       <li key={i} style={{ fontSize: 13, marginTop: 2 }}>
-                        [{e.fecha}] N° Serie: <b>{e.numeroSerie}</b> — Motivo: {e.motivoGeneral || '-'} — <span style={{ color: '#ffb' }}>Eliminado por: {e.eliminadoPor}</span>
+                        [{formatFecha(e.fecha)}] N° Serie: <b>{e.numeroSerie}</b> — Motivo: {e.motivoGeneral || '-'} — <span style={{ color: '#ffb' }}>Eliminado por: {e.eliminadoPor}</span>
                       </li>
                     ))}
                   </ul>
