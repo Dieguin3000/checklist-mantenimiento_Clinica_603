@@ -15,23 +15,23 @@ const dispositivos = [
     id: 'cama4700',
     nombre: 'Cama de maternidad Stryker ADEL 4700',
     checklist: [
-      { id: 1, label: "Todos los tornillos y elementos de fijación están bien sujetos", info: "Verificar que todos los tornillos estén firmemente ajustados utilizando las herramientas apropiadas (Allen, Torx, llaves combinadas). En reemplazos o ajustes críticos, aplicar adhesivo tipo Loctite 242 si se indica. Reapretar tras el mantenimiento." },
+      { id: 1, label: "Todos los tornillos y elementos de fijación están bien sujetos", info: "Herramientas apropiadas (Allen, Torx, llaves combinadas). En reemplazos o ajustes críticos, aplicar adhesivo tipo Loctite 242. Reapretar tras el mantenimiento." },
       { id: 2, label: "Todas las soldaduras están intactas, no agrietadas ni rotas", info: "Si se detectan grietas, porosidades o fracturas, no operar la cama y contactar al soporte técnico de Stryker. No se permite reparación local de soldaduras." },
       { id: 3, label: "No hay tubos ni láminas de metal dobladas o rotas", info: "Buscar dobleces, deformaciones o fracturas. Ante cualquier daño estructural, suspender el uso de la cama y contactar a soporte técnico de Stryker." },
-      { id: 4, label: "No hay residuos en las ruedas", info: "Revisar que las ruedas y ejes estén libres de residuos, cabellos, gasas u otros objetos extraños. Retirar cualquier obstrucción y limpiar según sea necesario para garantizar el libre movimiento." },
-      { id: 5, label: "Todas las ruedas están seguras y giran correctamente", info: "Verificar que cada rueda esté firmemente sujeta a la estructura y que gire libremente sin ruidos, fricción excesiva o bloqueo. Inspeccionar los rodamientos y reemplazar si hay desgaste o restricción de movimiento. Tipo de ruedas del dispositivo (P/N 0710-105-000 para ruedas con freno | P/N 0710-106-000 para ruedas de dirección)." },
+      { id: 4, label: "No hay residuos en las ruedas", info: "Retirar cualquier obstrucción y limpiar según sea necesario para garantizar el libre movimiento." },
+      { id: 5, label: "Todas las ruedas están seguras y giran correctamente", info: "Las ruedas deben girar sin ruidos, fricción excesiva o bloqueo. Reemplazar si hay desgaste o restricción de movimiento. Tipo de ruedas del dispositivo (P/N 0710-105-000 para ruedas con freno | P/N 0710-106-000 para ruedas de dirección)." },
       { id: 6, label: "Bloqueo correcto de las 4 ruedas al pisar el freno", info: "Presionar el pedal de freno hasta el fondo y verificar que las cuatro ruedas queden inmovilizadas. Intentar mover la cama para confirmar que los frenos están activos. Si alguna rueda gira, inspeccionar el sistema de frenos y enlaces mecánicos. Ajustar o reemplazar partes si es necesario. Las fallas comunes incluyen desalineación del pedal, cables flojos o desgaste en el ensamble de freno." },
       { id: 7, label: "Los seguros de dirección de las ruedas funcionan correctamente.", info: "Activar el seguro direccional desde el pedal correspondiente y empujar la cama hacia adelante. Verificar que la rueda guía mantenga un trayecto recto. Si hay desviaciones o vibraciones, revisar el mecanismo de bloqueo y reemplazar si hay desgaste. Usar repuesto original P/N 0710-106-000 si se requiere." },
       { id: 8, label: "Las barandillas se mueven y se traban correctamente.", info: "Verificar que las barandillas suban y bajen sin fricción excesiva y que el sistema de bloqueo enganche con firmeza. Si alguna barandilla queda floja o no se traba adecuadamente, inspeccionar y reemplazar el mecanismo de enganche o la barandilla completa." },
       { id: 9, label: "El respaldo Fowler se desliza correctamente", info: "Debe tener un rango de movimiento de entre 0° - 70°" },
       { id: 10, label: "La cama sube y baja correctamente", info: "Se desplaza dentro de un rango de 49-95 cm" },
       { id: 11, label: "La sección de pies funciona correctamente", info: "Verificar que se mueva sin ruidos anormales ni obstrucciones. Si no responde o presenta movimientos irregulares, revisar conexiones del actuador y realizar recalibración si es necesario." },
-      { id: 12, label: "Funciona correctamente la posición de Trendelenburg", info: "Verificar que la cama se incline suavemente hasta un máximo de 8° con la cabeza más baja que los pies. Confirmar que no haya ruidos, bloqueos ni errores. Si hay fallas, revisar actuadores y realizar recalibración." },
-      { id: 13, label: "El soporte para suero está intacto y funciona correctamente", info: "Confirmar que se puede extender y retraer, y que su mecanismo de bloqueo mantiene la posición deseada sin deslizamientos." },
+      { id: 12, label: "Funciona correctamente la posición de Trendelenburg", info: "La cama se inclina hasta un máximo de 8° con la cabeza más baja que los pies. Confirmar que no haya ruidos, bloqueos ni errores. Si hay fallas, revisar actuadores y realizar recalibración." },
+      { id: 13, label: "El soporte para suero está intacto y funciona correctamente", info: "Se puede extender y retraer, y el mecanismo de bloqueo mantiene la posición deseada sin deslizamientos." },
       { id: 14, label: "Funda del colchón sin rasgaduras ni grietas", info: "Inspeccionar visualmente toda la superficie del colchón, incluyendo costuras, para detectar grietas, cortes, desgaste o pinchazos. Si se encuentra algún daño, reemplazar el colchón de inmediato." },
       { id: 15, label: "Lubricar donde sea necesario", info: "Lubricar puntos móviles (como guías del respaldo o ruedas) si presentan fricción. Usar lubricantes compatibles con equipos médicos (base silicona o litio blanco). Evitar aceites con solventes o base mineral." },
-      { id: 16, label: "Reemplazo de la batería de 9V del llamado de enfermería", info: "Reemplazar la batería de 9V ubicada en la cabecera del lado derecho del paciente si el LED parpadea. No se requieren herramientas. Verificar funcionamiento normal de luces tras el reemplazo." },
-      { id: 17, label: "El cable de alimentación no está deshilachado", info: "Revisar el cable principal en toda su longitud. No debe tener cortes, abrasión ni hilos expuestos. En caso de daño, reemplazar por repuesto autorizado (P/N 39–248 para 110V)." },
+      { id: 16, label: "Reemplazo de la batería de 9V del llamado de enfermería", info: "Si el LED parpadea reemplazar batería. Se ubica en la cabecera del lado derecho del paciente. No se requieren herramientas. Verificar funcionamiento normal de luces tras el reemplazo." },
+      { id: 17, label: "El cable de alimentación no está deshilachado", info: "Revisar toda la longitud del cable. No debe tener cortes, abrasión ni hilos expuestos. En caso de daño, reemplazar por repuesto autorizado (P/N 39–248 para 110V)." },
       { id: 18, label: "Ningún cable está desgastado o pinzado", info: "Revisar que ningún cable esté atrapado entre mecanismos móviles ni presente señales de presión o desgaste por torsión." },
       { id: 19, label: "Todas las conexiones eléctricas están firmes", info: "Verificar que todas las conexiones estén bien asentadas y no flojas. Inspeccionar conectores en placas internas y cableado visible." },
       { id: 20, label: "Todas las conexiones a tierra están aseguradas al bastidor", info: "Asegurar que los cables de tierra estén conectados al bastidor metálico, usando terminales firmes. Probar continuidad con multímetro si es necesario." },
@@ -50,7 +50,7 @@ const motivosNoFinalizacion = [
   "Interrupciones administrativas o cambio de prioridad"
 ];
 
-const ADMIN_PASS = "biomed2024";
+const ADMIN_PASS = "Clinica_603";
 
 function formatFecha(fechaStr) {
   try {
