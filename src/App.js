@@ -99,6 +99,13 @@ function App() {
     return unsub;
   }, []);
 
+  // --- Eliminaciones desde Firestore ---
+  useEffect(() => {
+    const q = query(collection(db, "eliminaciones"), orderBy("fechaEliminacion", "desc"));
+    const unsub = onSnapshot(q, snap => setEliminaciones(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
+    return unsub;
+  }, []);
+
   // --- Seleccionar dispositivo ---
   const handleSelectDevice = (device) => {
     setSelectedDevice(device);
@@ -328,8 +335,12 @@ function App() {
       ...registroEliminar,
       eliminadoPor: codigoEliminar
     };
-    setEliminaciones(prev => [...prev, eliminado]);
+
     try {
+      await addDoc(
+        collection(db, "eliminaciones"),
+        { ...eliminado, fechaEliminacion: new Date().toISOString() }
+      );
       await deleteDoc(doc(db, "historial", registroEliminar.id));
       setMensaje('Registro eliminado correctamente.');
     } catch (e) {
